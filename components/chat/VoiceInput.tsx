@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Mic, MicOff, Loader2 } from "lucide-react";
 import { clsx } from "clsx";
 
@@ -9,78 +9,99 @@ interface Props {
   disabled?: boolean;
 }
 
+// Browser Speech Recognition types
+interface SpeechRecognitionEvent {
+  results: SpeechRecognitionResultList;
+  resultIndex: number;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionResult {
+  isFinal: boolean;
+  length: number;
+  item(index: number): SpeechRecognitionAlternative;
+  [index: number]: SpeechRecognitionAlternative;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognitionInstance extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start(): void;
+  stop(): void;
+  abort(): void;
+}
+
+function getSpeechRecognition(): (new () => SpeechRecognitionInstance) | null {
+  if (typeof window === "undefined") return null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const w = window as any;
+  return w.SpeechRecognition || w.webkitSpeechRecognition || null;
+}
+
 export default function VoiceInput({ onResult, disabled }: Props) {
   const [isRecording, setIsRecording] = useState(false);
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
+  const [supported, setSupported] = useState(true);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const transcriptRef = useRef("");
 
-  async function startRecording() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
-      mediaRecorderRef.current = mediaRecorder;
-      chunksRef.current = [];
+  useEffect(() => {
+    setSupported(getSpeechRecognition() !== null);
+  }, []);
 
-      mediaRecorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data);
-      };
+  function startRecording() {
+    const SpeechRecognition = getSpeechRecognition();
+    if (!SpeechRecognition) return;
 
-      mediaRecorder.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
-        const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-        await transcribe(blob);
-      };
+    const recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = "en-US";
+    transcriptRef.current = "";
 
-      mediaRecorder.start();
-      setIsRecording(true);
-    } catch {
-      console.error("Microphone access denied");
-    }
+    recognition.onresult = (event: SpeechRecognitionEvent) => {
+      let text = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        if (event.results[i].isFinal) {
+          text += event.results[i][0].transcript;
+        }
+      }
+      transcriptRef.current += text;
+    };
+
+    recognition.onerror = (event: { error: string }) => {
+      console.error("Speech recognition error:", event.error);
+      setIsRecording(false);
+    };
+
+    recognition.onend = () => {
+      setIsRecording(false);
+      const finalText = transcriptRef.current.trim();
+      if (finalText) {
+        onResult(finalText);
+      }
+    };
+
+    recognition.start();
+    recognitionRef.current = recognition;
+    setIsRecording(true);
   }
 
   function stopRecording() {
-    mediaRecorderRef.current?.stop();
-    setIsRecording(false);
-  }
-
-  async function transcribe(blob: Blob) {
-    setIsTranscribing(true);
-    try {
-      // Use Web Speech API as primary (free, no API key needed)
-      // Fallback: send to /api/transcribe for Whisper
-      const text = await webSpeechTranscribe(blob);
-      if (text) {
-        onResult(text);
-      }
-    } catch (error) {
-      console.error("Transcription failed:", error);
-    } finally {
-      setIsTranscribing(false);
-    }
-  }
-
-  // Simple approach: re-record using SpeechRecognition API
-  // This is a fallback — the main approach records and sends to API
-  async function webSpeechTranscribe(_blob: Blob): Promise<string | null> {
-    // For MVP, we'll use the blob approach with a server endpoint
-    // but also try the browser SpeechRecognition if available
-    const formData = new FormData();
-    formData.append("audio", _blob, "recording.webm");
-
-    try {
-      const res = await fetch("/api/transcribe", {
-        method: "POST",
-        body: formData,
-      });
-      if (res.ok) {
-        const data = await res.json();
-        return data.text;
-      }
-    } catch {
-      // Fallback to empty - user can type instead
-    }
-    return null;
+    recognitionRef.current?.stop();
   }
 
   function toggleRecording() {
@@ -91,13 +112,8 @@ export default function VoiceInput({ onResult, disabled }: Props) {
     }
   }
 
-  if (isTranscribing) {
-    return (
-      <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center">
-        <Loader2 className="w-5 h-5 text-text-secondary animate-spin" />
-      </div>
-    );
-  }
+  // Hide button if browser doesn't support speech recognition
+  if (!supported) return null;
 
   return (
     <button
