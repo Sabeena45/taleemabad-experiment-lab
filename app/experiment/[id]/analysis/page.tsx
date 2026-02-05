@@ -59,7 +59,7 @@ export default function AnalysisPage() {
             role: "user",
             content: `Generate an analysis report for this completed experiment. Include findings, effect sizes, and recommendations. Create sample data for visualization since we're demonstrating the platform.\n\nExperiment context:\n${context}`,
           }],
-          level: "problem",
+          level: "analysis",
           context,
         }),
       });

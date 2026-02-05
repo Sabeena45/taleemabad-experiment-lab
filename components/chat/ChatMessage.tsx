@@ -40,7 +40,7 @@ export default function ChatMessage({ role, content, isStreaming }: Props) {
           isAssistant
             ? "bg-gray-50 text-text-primary"
             : "bg-primary text-white",
-          isStreaming && "animate-pulse-slow"
+          isStreaming && "animate-pulse"
         )}
       >
         {/* Render markdown-like formatting */}

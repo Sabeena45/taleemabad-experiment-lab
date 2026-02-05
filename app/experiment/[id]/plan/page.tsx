@@ -51,7 +51,7 @@ export default function PlanPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: [{ role: "user", content: `Generate a pre-analysis plan for this experiment:\n\n${context}` }],
-          level: "problem", // using generic prompt for plan generation
+          level: "plan",
           context,
         }),
       });

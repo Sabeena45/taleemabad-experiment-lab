@@ -1,12 +1,16 @@
 import { PROBLEM_SYSTEM_PROMPT } from "@/lib/prompts/problem";
 import { HYPOTHESIS_CHAT_PROMPT } from "@/lib/prompts/hypothesis";
 import { DESIGN_CHAT_PROMPT } from "@/lib/prompts/design";
+import { PLAN_GENERATION_PROMPT } from "@/lib/prompts/plan";
+import { ANALYSIS_PROMPT } from "@/lib/prompts/analysis";
 import Anthropic from "@anthropic-ai/sdk";
 
 const LEVEL_PROMPTS: Record<string, string> = {
   problem: PROBLEM_SYSTEM_PROMPT,
   hypothesis: HYPOTHESIS_CHAT_PROMPT,
   design: DESIGN_CHAT_PROMPT,
+  plan: PLAN_GENERATION_PROMPT,
+  analysis: ANALYSIS_PROMPT,
 };
 
 export async function POST(request: Request) {

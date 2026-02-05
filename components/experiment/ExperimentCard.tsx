@@ -56,7 +56,7 @@ export default function ExperimentCard({ experiment }: Props) {
         </div>
         <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-primary to-primary-400 rounded-full transition-all duration-500"
+            className="h-full bg-gradient-to-r from-primary to-info rounded-full transition-all duration-500"
             style={{ width: `${Math.max(progress, 5)}%` }}
           />
         </div>
