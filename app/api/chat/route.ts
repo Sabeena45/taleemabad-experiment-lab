@@ -14,6 +14,16 @@ const LEVEL_PROMPTS: Record<string, string> = {
 };
 
 export async function POST(request: Request) {
+  // Check for API key first
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    console.error("ANTHROPIC_API_KEY is not set");
+    return new Response(
+      JSON.stringify({ error: "API key not configured. Please set ANTHROPIC_API_KEY in environment variables." }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
   try {
     const { messages, level, context } = await request.json();
 
@@ -22,10 +32,10 @@ export async function POST(request: Request) {
       ? `\n\n## Current Experiment Context\n${context}`
       : "";
 
-    const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const client = new Anthropic({ apiKey });
 
     const stream = await client.messages.stream({
-      model: "claude-sonnet-4-5-20250929",
+      model: "claude-sonnet-4-20250514",
       max_tokens: 2048,
       system: systemPrompt + contextSuffix,
       messages: messages.map((m: { role: string; content: string }) => ({
@@ -38,18 +48,26 @@ export async function POST(request: Request) {
     const encoder = new TextEncoder();
     const readable = new ReadableStream({
       async start(controller) {
-        for await (const event of stream) {
-          if (
-            event.type === "content_block_delta" &&
-            event.delta.type === "text_delta"
-          ) {
-            controller.enqueue(
-              encoder.encode(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`)
-            );
+        try {
+          for await (const event of stream) {
+            if (
+              event.type === "content_block_delta" &&
+              event.delta.type === "text_delta"
+            ) {
+              controller.enqueue(
+                encoder.encode(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`)
+              );
+            }
           }
+          controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          controller.close();
+        } catch (streamError) {
+          console.error("Stream error:", streamError);
+          controller.enqueue(
+            encoder.encode(`data: ${JSON.stringify({ error: "Stream interrupted" })}\n\n`)
+          );
+          controller.close();
         }
-        controller.enqueue(encoder.encode("data: [DONE]\n\n"));
-        controller.close();
       },
     });
 
@@ -62,9 +80,10 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Chat error:", error);
-    return new Response(JSON.stringify({ error: "Chat failed" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    return new Response(
+      JSON.stringify({ error: `Chat failed: ${errorMessage}` }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
+    );
   }
 }

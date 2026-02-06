@@ -17,6 +17,7 @@ export default function ProblemPage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const [showCelebration, setShowCelebration] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/experiments/${id}`)
@@ -46,6 +47,7 @@ export default function ProblemPage() {
     setMessages(newMessages);
     setIsStreaming(true);
     setStreamingContent("");
+    setError(null);
 
     try {
       const res = await fetch("/api/chat", {
@@ -59,6 +61,14 @@ export default function ProblemPage() {
             : "",
         }),
       });
+
+      // Check for non-streaming error response
+      if (!res.ok) {
+        const errorData = await res.json();
+        setError(errorData.error || `Request failed with status ${res.status}`);
+        setIsStreaming(false);
+        return;
+      }
 
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
@@ -76,13 +86,25 @@ export default function ProblemPage() {
             if (data === "[DONE]") break;
             try {
               const parsed = JSON.parse(data);
-              fullContent += parsed.text;
-              setStreamingContent(fullContent);
+              if (parsed.error) {
+                setError(parsed.error);
+                break;
+              }
+              if (parsed.text) {
+                fullContent += parsed.text;
+                setStreamingContent(fullContent);
+              }
             } catch {
-              // skip
+              // skip malformed JSON
             }
           }
         }
+      }
+
+      if (!fullContent) {
+        setError("No response received. Please check that the API key is configured.");
+        setIsStreaming(false);
+        return;
       }
 
       const assistantMessage: ChatMessage = {
@@ -105,8 +127,9 @@ export default function ProblemPage() {
           prev ? { ...prev, problem_statement: fullContent } : prev
         );
       }
-    } catch (error) {
-      console.error("Chat error:", error);
+    } catch (err) {
+      console.error("Chat error:", err);
+      setError(err instanceof Error ? err.message : "Failed to send message. Please try again.");
     } finally {
       setIsStreaming(false);
       setStreamingContent("");
@@ -211,14 +234,33 @@ export default function ProblemPage() {
             </div>
           </div>
         ) : (
-          <ChatInterface
-            messages={messages}
-            onSend={handleSend}
-            isStreaming={isStreaming}
-            streamingContent={streamingContent}
-            placeholder="Describe the problem you want to investigate..."
-            level="problem"
-          />
+          <>
+            {error && (
+              <div className="mx-4 mt-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+                <div className="flex items-start gap-3">
+                  <span className="text-red-500">⚠️</span>
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-red-800">Error</p>
+                    <p className="text-sm text-red-600 mt-1">{error}</p>
+                  </div>
+                  <button
+                    onClick={() => setError(null)}
+                    className="text-red-400 hover:text-red-600"
+                  >
+                    ✕
+                  </button>
+                </div>
+              </div>
+            )}
+            <ChatInterface
+              messages={messages}
+              onSend={handleSend}
+              isStreaming={isStreaming}
+              streamingContent={streamingContent}
+              placeholder="Describe the problem you want to investigate..."
+              level="problem"
+            />
+          </>
         )}
       </div>
 
