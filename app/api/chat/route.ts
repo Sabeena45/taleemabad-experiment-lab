@@ -5,6 +5,10 @@ import { PLAN_GENERATION_PROMPT } from "@/lib/prompts/plan";
 import { ANALYSIS_PROMPT } from "@/lib/prompts/analysis";
 import Anthropic from "@anthropic-ai/sdk";
 
+// Use Node.js runtime for better compatibility with Anthropic SDK
+export const runtime = "nodejs";
+export const maxDuration = 60; // Allow up to 60 seconds for streaming
+
 const LEVEL_PROMPTS: Record<string, string> = {
   problem: PROBLEM_SYSTEM_PROMPT,
   hypothesis: HYPOTHESIS_CHAT_PROMPT,
