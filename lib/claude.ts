@@ -16,7 +16,7 @@ export async function streamChat(
   const anthropic = getClient();
 
   const stream = await anthropic.messages.stream({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-5-20250929",
     max_tokens: 2048,
     system: systemPrompt,
     messages,
@@ -32,7 +32,7 @@ export async function generateJSON<T>(
   const anthropic = getClient();
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-5-20250929",
     max_tokens: 4096,
     system:
       systemPrompt +
@@ -52,7 +52,7 @@ export async function generateText(
   const anthropic = getClient();
 
   const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-5-20250929",
     max_tokens: 4096,
     system: systemPrompt,
     messages: [{ role: "user", content: userMessage }],
