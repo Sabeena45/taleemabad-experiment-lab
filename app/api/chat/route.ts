@@ -14,8 +14,12 @@ const LEVEL_PROMPTS: Record<string, string> = {
 };
 
 export async function POST(request: Request) {
+  console.log("Chat API called");
+
   // Check for API key first
   const apiKey = process.env.ANTHROPIC_API_KEY;
+  console.log("API key exists:", !!apiKey);
+
   if (!apiKey) {
     console.error("ANTHROPIC_API_KEY is not set");
     return new Response(
@@ -25,15 +29,19 @@ export async function POST(request: Request) {
   }
 
   try {
+    console.log("Parsing request body...");
     const { messages, level, context } = await request.json();
+    console.log("Request parsed - level:", level, "messages count:", messages?.length);
 
     const systemPrompt = LEVEL_PROMPTS[level] || PROBLEM_SYSTEM_PROMPT;
     const contextSuffix = context
       ? `\n\n## Current Experiment Context\n${context}`
       : "";
 
+    console.log("Creating Anthropic client...");
     const client = new Anthropic({ apiKey });
 
+    console.log("Starting stream with model:", "claude-sonnet-4-5-20250929");
     const stream = await client.messages.stream({
       model: "claude-sonnet-4-5-20250929",
       max_tokens: 2048,
