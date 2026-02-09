@@ -3,11 +3,9 @@ import { HYPOTHESIS_CHAT_PROMPT } from "@/lib/prompts/hypothesis";
 import { DESIGN_CHAT_PROMPT } from "@/lib/prompts/design";
 import { PLAN_GENERATION_PROMPT } from "@/lib/prompts/plan";
 import { ANALYSIS_PROMPT } from "@/lib/prompts/analysis";
-import Anthropic from "@anthropic-ai/sdk";
 
-// Use Node.js runtime for better compatibility with Anthropic SDK
-export const runtime = "nodejs";
-export const maxDuration = 60; // Allow up to 60 seconds for streaming
+export const runtime = "edge";
+export const maxDuration = 60;
 
 const LEVEL_PROMPTS: Record<string, string> = {
   problem: PROBLEM_SYSTEM_PROMPT,
@@ -18,14 +16,9 @@ const LEVEL_PROMPTS: Record<string, string> = {
 };
 
 export async function POST(request: Request) {
-  console.log("Chat API called");
-
-  // Check for API key first
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  console.log("API key exists:", !!apiKey);
 
   if (!apiKey) {
-    console.error("ANTHROPIC_API_KEY is not set");
     return new Response(
       JSON.stringify({ error: "API key not configured. Please set ANTHROPIC_API_KEY in environment variables." }),
       { status: 500, headers: { "Content-Type": "application/json" } }
@@ -33,42 +26,77 @@ export async function POST(request: Request) {
   }
 
   try {
-    console.log("Parsing request body...");
     const { messages, level, context } = await request.json();
-    console.log("Request parsed - level:", level, "messages count:", messages?.length);
 
     const systemPrompt = LEVEL_PROMPTS[level] || PROBLEM_SYSTEM_PROMPT;
     const contextSuffix = context
       ? `\n\n## Current Experiment Context\n${context}`
       : "";
 
-    console.log("Creating Anthropic client...");
-    const client = new Anthropic({ apiKey });
-
-    console.log("Starting stream with model:", "claude-sonnet-4-5-20250929");
-    const stream = await client.messages.stream({
-      model: "claude-sonnet-4-5-20250929",
-      max_tokens: 2048,
-      system: systemPrompt + contextSuffix,
-      messages: messages.map((m: { role: string; content: string }) => ({
-        role: m.role as "user" | "assistant",
-        content: m.content,
-      })),
+    // Direct fetch to Anthropic API — no SDK needed, works on edge/serverless
+    const anthropicRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-5-20250929",
+        max_tokens: 2048,
+        stream: true,
+        system: systemPrompt + contextSuffix,
+        messages: messages.map((m: { role: string; content: string }) => ({
+          role: m.role,
+          content: m.content,
+        })),
+      }),
     });
 
-    // Convert to ReadableStream for streaming response
+    if (!anthropicRes.ok) {
+      const errText = await anthropicRes.text();
+      console.error("Anthropic API error:", anthropicRes.status, errText);
+      return new Response(
+        JSON.stringify({ error: `Anthropic API error: ${anthropicRes.status}` }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Pipe Anthropic's SSE stream, extracting text deltas
     const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const reader = anthropicRes.body!.getReader();
+
     const readable = new ReadableStream({
       async start(controller) {
+        let buffer = "";
         try {
-          for await (const event of stream) {
-            if (
-              event.type === "content_block_delta" &&
-              event.delta.type === "text_delta"
-            ) {
-              controller.enqueue(
-                encoder.encode(`data: ${JSON.stringify({ text: event.delta.text })}\n\n`)
-              );
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split("\n");
+            buffer = lines.pop() || "";
+
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              const data = line.slice(6).trim();
+              if (!data || data === "[DONE]") continue;
+
+              try {
+                const parsed = JSON.parse(data);
+                if (
+                  parsed.type === "content_block_delta" &&
+                  parsed.delta?.type === "text_delta"
+                ) {
+                  controller.enqueue(
+                    encoder.encode(`data: ${JSON.stringify({ text: parsed.delta.text })}\n\n`)
+                  );
+                }
+              } catch {
+                // skip malformed JSON
+              }
             }
           }
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
@@ -87,7 +115,6 @@ export async function POST(request: Request) {
       headers: {
         "Content-Type": "text/event-stream",
         "Cache-Control": "no-cache, no-transform",
-        Connection: "keep-alive",
         "X-Accel-Buffering": "no",
       },
     });
