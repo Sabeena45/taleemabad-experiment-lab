@@ -36,9 +36,13 @@ export default function HypothesisPage() {
   async function generateHypotheses(problemStatement: string) {
     setLoading(true);
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           messages: [
             {
@@ -50,6 +54,7 @@ export default function HypothesisPage() {
           context: `Problem statement: ${problemStatement}`,
         }),
       });
+      clearTimeout(timeout);
 
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
@@ -91,6 +96,9 @@ export default function HypothesisPage() {
       }
     } catch (error) {
       console.error("Failed to generate hypotheses:", error);
+      if (error instanceof DOMException && error.name === "AbortError") {
+        // Request timed out - could set an error state here if needed
+      }
     } finally {
       setLoading(false);
     }

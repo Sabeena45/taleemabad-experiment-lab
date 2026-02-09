@@ -46,15 +46,20 @@ export default function PlanPage() {
         power: exp.power_level,
       });
 
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           messages: [{ role: "user", content: `Generate a pre-analysis plan for this experiment:\n\n${context}` }],
           level: "plan",
           context,
         }),
       });
+      clearTimeout(timeout);
 
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
@@ -93,6 +98,9 @@ export default function PlanPage() {
       });
     } catch (error) {
       console.error("Failed to generate plan:", error);
+      if (error instanceof DOMException && error.name === "AbortError") {
+        // Request timed out - could set an error state here if needed
+      }
     } finally {
       setLoading(false);
     }

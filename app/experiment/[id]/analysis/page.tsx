@@ -51,9 +51,13 @@ export default function AnalysisPage() {
         problem: exp.problem_statement,
       });
 
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           messages: [{
             role: "user",
@@ -63,6 +67,7 @@ export default function AnalysisPage() {
           context,
         }),
       });
+      clearTimeout(timeout);
 
       const reader = res.body?.getReader();
       const decoder = new TextDecoder();
@@ -115,6 +120,9 @@ export default function AnalysisPage() {
       });
     } catch (error) {
       console.error("Analysis failed:", error);
+      if (error instanceof DOMException && error.name === "AbortError") {
+        // Request timed out - could set an error state here if needed
+      }
     } finally {
       setLoading(false);
     }

@@ -50,9 +50,13 @@ export default function ProblemPage() {
     setError(null);
 
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
           level: "problem",
@@ -61,6 +65,8 @@ export default function ProblemPage() {
             : "",
         }),
       });
+
+      clearTimeout(timeout);
 
       // Check for non-streaming error response
       if (!res.ok) {
@@ -137,7 +143,11 @@ export default function ProblemPage() {
       }
     } catch (err) {
       console.error("Chat error:", err);
-      setError(err instanceof Error ? err.message : "Failed to send message. Please try again.");
+      if (err instanceof DOMException && err.name === "AbortError") {
+        setError("Request timed out. The AI service may be slow — please try again.");
+      } else {
+        setError(err instanceof Error ? err.message : "Failed to send message. Please try again.");
+      }
     } finally {
       setIsStreaming(false);
       setStreamingContent("");
