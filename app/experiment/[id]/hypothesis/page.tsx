@@ -133,7 +133,7 @@ export default function HypothesisPage() {
       return;
     }
 
-    await fetch(`/api/experiments/${id}`, {
+    const res = await fetch(`/api/experiments/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -143,6 +143,13 @@ export default function HypothesisPage() {
         current_level: 3,
       }),
     });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(`Failed to save: ${err.error || res.statusText}. Please try again.`);
+      return;
+    }
+
     setShowCelebration(true);
   }
 

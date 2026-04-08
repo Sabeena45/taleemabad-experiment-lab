@@ -46,10 +46,18 @@ export async function PATCH(request: Request, { params }: { params: { id: string
       "report_pdf_url", "conversations",
     ];
 
+    // Fields stored as JSONB in PostgreSQL — must be serialized to JSON strings
+    const jsonbFields = new Set([
+      "problem_context", "hypotheses", "intervention_arms", "secondary_outcomes",
+      "study_plan", "timeline", "data_collection_methods", "data_uploads",
+      "analysis_results", "report_content", "charts", "conversations",
+    ]);
+
     for (const field of allowedFields) {
       if (field in body) {
         updates.push(field);
-        values.push(body[field]);
+        const value = body[field];
+        values.push(jsonbFields.has(field) && value !== null ? JSON.stringify(value) : value);
       }
     }
 
@@ -61,7 +69,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     // Since Neon's tagged template doesn't support dynamic column names easily,
     // we'll do individual field updates
     const setClauses = updates
-      .map((field, i) => `${field} = $${i + 2}`)
+      .map((field, i) => jsonbFields.has(field) ? `${field} = $${i + 2}::jsonb` : `${field} = $${i + 2}`)
       .join(", ");
 
     const query = `
