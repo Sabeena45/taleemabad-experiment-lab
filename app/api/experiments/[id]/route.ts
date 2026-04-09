@@ -29,7 +29,7 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     const values: unknown[] = [];
 
     const allowedFields = [
-      "title", "current_level", "status",
+      "title", "current_level", "status", "experiment_path",
       "problem_voice_url", "problem_transcript", "problem_statement",
       "problem_context", "problem_approved",
       "hypotheses", "theory_of_change", "hypothesis_approved",

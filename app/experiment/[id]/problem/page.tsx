@@ -63,6 +63,7 @@ export default function ProblemPage() {
           context: experiment?.problem_statement
             ? `Current problem statement: ${experiment.problem_statement}`
             : "",
+          experiment_path: experiment?.experiment_path,
         }),
       });
 

@@ -20,14 +20,19 @@ interface Recommendation {
   design_considerations: string[];
 }
 
-const EXP_TYPES = [
-  { value: "rct", label: "RCT", desc: "Random assignment to treatment & control", icon: "🎲" },
-  { value: "cluster_rct", label: "Cluster RCT", desc: "Randomize groups (schools, villages)", icon: "🏫" },
-  { value: "quasi", label: "Quasi-Experiment", desc: "Use matching or natural variation", icon: "🔄" },
-  { value: "ab_test", label: "A/B Test", desc: "Digital randomization of features", icon: "📱" },
-  { value: "did", label: "Diff-in-Diff", desc: "Compare changes over time", icon: "📊" },
-  { value: "pilot", label: "Pilot Study", desc: "Small-scale feasibility test", icon: "🧪" },
+const ALL_EXP_TYPES = [
+  { value: "rct", label: "RCT", desc: "Random assignment to treatment & control", icon: "🎲", paths: ["impact"] },
+  { value: "cluster_rct", label: "Cluster RCT", desc: "Randomize groups (schools, villages)", icon: "🏫", paths: ["impact"] },
+  { value: "quasi", label: "Quasi-Experiment", desc: "Use matching or natural variation", icon: "🔄", paths: ["impact"] },
+  { value: "ab_test", label: "A/B Test", desc: "Digital randomization of features", icon: "📱", paths: ["product"] },
+  { value: "did", label: "Diff-in-Diff", desc: "Compare changes over time", icon: "📊", paths: ["impact"] },
+  { value: "pilot", label: "Pilot Study", desc: "Small-scale feasibility test", icon: "🧪", paths: ["product", "impact"] },
 ];
+
+function getExpTypes(path: string | null | undefined) {
+  if (!path) return ALL_EXP_TYPES;
+  return ALL_EXP_TYPES.filter((t) => t.paths.includes(path));
+}
 
 export default function DesignPage() {
   const params = useParams();
@@ -56,6 +61,7 @@ export default function DesignPage() {
   const [showAlternatives, setShowAlternatives] = useState(false);
 
   const isCluster = expType === "cluster_rct" || expType === "quasi";
+  const EXP_TYPES = getExpTypes(experiment?.experiment_path);
 
   useEffect(() => {
     fetch(`/api/experiments/${id}`)

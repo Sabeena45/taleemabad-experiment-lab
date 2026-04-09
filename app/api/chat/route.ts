@@ -1,5 +1,5 @@
-import { PROBLEM_SYSTEM_PROMPT } from "@/lib/prompts/problem";
-import { HYPOTHESIS_CHAT_PROMPT } from "@/lib/prompts/hypothesis";
+import { PROBLEM_SYSTEM_PROMPT, PROBLEM_PRODUCT_PROMPT, PROBLEM_IMPACT_PROMPT } from "@/lib/prompts/problem";
+import { HYPOTHESIS_CHAT_PROMPT, HYPOTHESIS_PRODUCT_PROMPT, HYPOTHESIS_IMPACT_PROMPT } from "@/lib/prompts/hypothesis";
 import { DESIGN_CHAT_PROMPT } from "@/lib/prompts/design";
 import { PLAN_GENERATION_PROMPT } from "@/lib/prompts/plan";
 import { ANALYSIS_PROMPT } from "@/lib/prompts/analysis";
@@ -15,6 +15,17 @@ const LEVEL_PROMPTS: Record<string, string> = {
   analysis: ANALYSIS_PROMPT,
 };
 
+const PATH_PROMPTS: Record<string, Partial<Record<string, string>>> = {
+  product: {
+    problem: PROBLEM_PRODUCT_PROMPT,
+    hypothesis: HYPOTHESIS_PRODUCT_PROMPT,
+  },
+  impact: {
+    problem: PROBLEM_IMPACT_PROMPT,
+    hypothesis: HYPOTHESIS_IMPACT_PROMPT,
+  },
+};
+
 export async function POST(request: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
 
@@ -26,9 +37,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { messages, level, context } = await request.json();
+    const { messages, level, context, experiment_path } = await request.json();
 
-    const systemPrompt = LEVEL_PROMPTS[level] || PROBLEM_SYSTEM_PROMPT;
+    const pathPrompts = experiment_path ? PATH_PROMPTS[experiment_path] : null;
+    const systemPrompt = (pathPrompts?.[level]) ?? LEVEL_PROMPTS[level] ?? PROBLEM_SYSTEM_PROMPT;
     const contextSuffix = context
       ? `\n\n## Current Experiment Context\n${context}`
       : "";

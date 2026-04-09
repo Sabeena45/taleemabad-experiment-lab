@@ -9,10 +9,13 @@ export function getDb() {
 }
 
 // Type definitions for experiment_designs table
+export type ExperimentPath = "product" | "impact";
+
 export interface ExperimentDesign {
   id: string;
   title: string | null;
   created_by: string | null;
+  experiment_path: ExperimentPath | null;
   current_level: number;
   status: "draft" | "in_progress" | "plan_complete" | "collecting_data" | "analyzing" | "complete";
 

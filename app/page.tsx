@@ -4,11 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Header from "@/components/layout/Header";
 import ExperimentCard from "@/components/experiment/ExperimentCard";
-import { Plus, FlaskConical, Sparkles } from "lucide-react";
+import { FlaskConical, Zap, BarChart3, ArrowRight } from "lucide-react";
 
 interface ExperimentSummary {
   id: string;
   title: string | null;
+  experiment_path: "product" | "impact" | null;
   current_level: number;
   status: string;
   experiment_type: string | null;
@@ -16,11 +17,44 @@ interface ExperimentSummary {
   updated_at: string;
 }
 
+const PATHS = [
+  {
+    key: "product" as const,
+    icon: Zap,
+    title: "Product Testing",
+    tagline: "Does this feature change behaviour?",
+    description:
+      "A/B test a product change — a new coaching prompt, a different nudge, a UI redesign. Fast iteration, digital data, results in days or weeks.",
+    examples: ["New lesson plan format", "WhatsApp nudge timing", "Coaching prompt redesign"],
+    color: "from-violet-500 to-purple-600",
+    bg: "bg-violet-50",
+    border: "border-violet-200 hover:border-violet-400",
+    badge: "bg-violet-100 text-violet-700",
+    iconBg: "bg-violet-100 text-violet-600",
+    btn: "bg-violet-600 hover:bg-violet-700 text-white",
+  },
+  {
+    key: "impact" as const,
+    icon: BarChart3,
+    title: "Impact Testing",
+    tagline: "Does this intervention improve outcomes?",
+    description:
+      "Design a rigorous field study — RCT, cluster trial, or quasi-experiment. Measure teacher behaviour or student learning. Results funders and policymakers trust.",
+    examples: ["AI coaching → TEACH scores", "FLN programme → Grade 3 reading", "Cluster RCT across schools"],
+    color: "from-blue-500 to-cyan-600",
+    bg: "bg-blue-50",
+    border: "border-blue-200 hover:border-blue-400",
+    badge: "bg-blue-100 text-blue-700",
+    iconBg: "bg-blue-100 text-blue-600",
+    btn: "bg-blue-600 hover:bg-blue-700 text-white",
+  },
+];
+
 export default function Dashboard() {
   const router = useRouter();
   const [experiments, setExperiments] = useState<ExperimentSummary[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<"product" | "impact" | null>(null);
 
   useEffect(() => {
     fetchExperiments();
@@ -40,13 +74,16 @@ export default function Dashboard() {
     }
   }
 
-  async function createExperiment() {
-    setCreating(true);
+  async function createExperiment(path: "product" | "impact") {
+    setCreating(path);
     try {
       const res = await fetch("/api/experiments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "New Experiment" }),
+        body: JSON.stringify({
+          title: path === "product" ? "New Product Test" : "New Impact Study",
+          experiment_path: path,
+        }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -55,7 +92,7 @@ export default function Dashboard() {
     } catch (error) {
       console.error("Failed to create experiment:", error);
     } finally {
-      setCreating(false);
+      setCreating(null);
     }
   }
 
@@ -63,43 +100,84 @@ export default function Dashboard() {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main className="max-w-6xl mx-auto px-6 py-10">
+      <main className="max-w-5xl mx-auto px-6 py-12">
         {/* Hero */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-2 badge-info mb-4">
-            <Sparkles className="w-3 h-3" />
-            Guided experiment design
-          </div>
           <h1 className="text-4xl font-display font-bold text-text-primary mb-3">
             Experiment Lab
           </h1>
-          <p className="text-lg text-text-secondary max-w-xl mx-auto">
-            Design rigorous experiments step by step — from problem statement to
-            analysis report. AI-guided, gamified, and fun.
+          <p className="text-lg text-text-secondary max-w-lg mx-auto">
+            What are you trying to learn?
           </p>
         </div>
 
-        {/* CTA */}
-        <div className="text-center mb-12">
-          <button
-            onClick={createExperiment}
-            disabled={creating}
-            className="btn-primary text-base px-8 py-3.5 rounded-2xl shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 transition-all"
-          >
-            <Plus className="w-5 h-5" />
-            {creating ? "Creating..." : "Start New Experiment"}
-          </button>
+        {/* Path cards */}
+        <div className="grid gap-6 sm:grid-cols-2 mb-16">
+          {PATHS.map((path) => {
+            const Icon = path.icon;
+            const isCreating = creating === path.key;
+            return (
+              <button
+                key={path.key}
+                onClick={() => createExperiment(path.key)}
+                disabled={creating !== null}
+                className={`text-left rounded-2xl border-2 p-7 transition-all duration-200 ${path.bg} ${path.border} group disabled:opacity-60 disabled:cursor-not-allowed shadow-sm hover:shadow-md`}
+              >
+                <div className="flex items-start justify-between mb-5">
+                  <div className={`p-3 rounded-xl ${path.iconBg}`}>
+                    <Icon className="w-6 h-6" />
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-text-secondary opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200 mt-1" />
+                </div>
+
+                <h2 className="text-xl font-display font-bold text-text-primary mb-1">
+                  {path.title}
+                </h2>
+                <p className="text-sm font-medium text-text-secondary mb-3 italic">
+                  {path.tagline}
+                </p>
+                <p className="text-sm text-text-secondary leading-relaxed mb-5">
+                  {path.description}
+                </p>
+
+                <div className="space-y-1.5 mb-6">
+                  {path.examples.map((ex, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${path.badge}`}>
+                        eg
+                      </span>
+                      <span className="text-xs text-text-secondary">{ex}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-colors ${path.btn}`}>
+                  {isCreating ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                      Setting up...
+                    </>
+                  ) : (
+                    <>
+                      Start {path.title}
+                      <ArrowRight className="w-4 h-4" />
+                    </>
+                  )}
+                </div>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Experiments Grid */}
+        {/* Existing experiments */}
         {loading ? (
-          <div className="text-center py-12">
-            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <div className="text-center py-8">
+            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
           </div>
-        ) : experiments.length > 0 ? (
+        ) : experiments.length > 0 && (
           <div>
-            <h2 className="section-title mb-4">
-              Your Experiments ({experiments.length})
+            <h2 className="text-sm font-medium text-text-secondary uppercase tracking-wider mb-4">
+              Your Experiments
             </h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {experiments.map((exp) => (
@@ -107,47 +185,14 @@ export default function Dashboard() {
               ))}
             </div>
           </div>
-        ) : (
-          <div className="text-center py-16 card">
-            <FlaskConical className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="font-display font-semibold text-text-primary mb-2">
-              No experiments yet
-            </h3>
-            <p className="text-sm text-text-secondary mb-6 max-w-sm mx-auto">
-              Start your first experiment and we&apos;ll guide you through every
-              step — from defining your problem to analyzing results.
-            </p>
-            <button onClick={createExperiment} disabled={creating} className="btn-primary">
-              <Plus className="w-4 h-4" />
-              Create your first experiment
-            </button>
-          </div>
         )}
 
-        {/* How it works */}
-        <div className="mt-16 pt-12 border-t border-gray-100">
-          <h2 className="section-title text-center mb-8">
-            6 Levels to a Rigorous Experiment
-          </h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              { icon: "🎯", title: "Problem Statement", desc: "Define what you're investigating" },
-              { icon: "💡", title: "Hypothesis", desc: "Generate testable predictions" },
-              { icon: "🔬", title: "Study Design", desc: "Choose method & calculate sample size" },
-              { icon: "📋", title: "Study Plan", desc: "Create your pre-analysis plan" },
-              { icon: "📊", title: "Data Collection", desc: "Collect and upload your data" },
-              { icon: "📈", title: "Analysis & Report", desc: "Run analysis & generate your report" },
-            ].map((step, i) => (
-              <div key={i} className="card text-center">
-                <div className="text-3xl mb-2">{step.icon}</div>
-                <p className="font-display font-semibold text-sm text-text-primary mb-1">
-                  Level {i + 1}: {step.title}
-                </p>
-                <p className="text-xs text-text-secondary">{step.desc}</p>
-              </div>
-            ))}
+        {experiments.length === 0 && !loading && (
+          <div className="text-center py-8 text-sm text-text-secondary flex items-center justify-center gap-2">
+            <FlaskConical className="w-4 h-4" />
+            No experiments yet — pick a path above to start your first one.
           </div>
-        </div>
+        )}
       </main>
     </div>
   );

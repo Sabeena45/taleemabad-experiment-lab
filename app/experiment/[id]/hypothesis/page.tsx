@@ -28,12 +28,12 @@ export default function HypothesisPage() {
           setHypotheses(exp.hypotheses);
           setTheoryOfChange(exp.theory_of_change || "");
         } else if (exp.problem_approved && exp.problem_statement) {
-          generateHypotheses(exp.problem_statement);
+          generateHypotheses(exp.problem_statement, exp.experiment_path);
         }
       });
   }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function generateHypotheses(problemStatement: string) {
+  async function generateHypotheses(problemStatement: string, path?: string | null) {
     setLoading(true);
     try {
       const controller = new AbortController();
@@ -52,6 +52,7 @@ export default function HypothesisPage() {
           ],
           level: "hypothesis",
           context: `Problem statement: ${problemStatement}`,
+          experiment_path: path,
         }),
       });
       clearTimeout(timeout);
@@ -280,7 +281,7 @@ export default function HypothesisPage() {
               Approve Hypotheses & Continue
             </button>
             <button
-              onClick={() => generateHypotheses(experiment.problem_statement || "")}
+              onClick={() => generateHypotheses(experiment.problem_statement || "", experiment.experiment_path)}
               className="btn-ghost"
             >
               <RefreshCw className="w-4 h-4" />
